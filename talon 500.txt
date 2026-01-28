@@ -1,1 +1,58 @@
-print("123")
+--// 1. CẤU HÌNH
+local TargetItem = "Dojo Belt (Red)" -- Tên chính xác của Đai Đỏ
+local FileName = "RedBelt-Done"      -- Ghi chú cho Tool đổi acc
+local WaitTime = 60                  -- Thời gian chờ sau khi có item (giây)
+
+--// 2. ĐỢI GAME LOAD (Chuẩn vàng.txt)
+repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer:FindFirstChild("DataLoaded")
+
+local plr = game.Players.LocalPlayer
+local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+
+--// 3. HÀM GHI FILE BÁO CÁO
+local function writeFinishFile()
+    pcall(function()
+        local content = "Completed-" .. FileName
+        writefile(plr.Name .. ".txt", content)
+        print("💾 Đã lưu file: " .. plr.Name .. ".txt")
+    end)
+end
+
+--// 4. HÀM KIỂM TRA ITEM (Dùng string.find cho chắc chắn)
+local function hasRedBelt()
+    local success, inventory = pcall(function()
+        return CommF:InvokeServer("getInventory")
+    end)
+    
+    if success and inventory then
+        for _, item in pairs(inventory) do
+            if item.Name and (item.Name == TargetItem or string.find(item.Name, "Red")) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+--// 5. VÒNG LẶP CHÍNH
+task.spawn(function()
+    print("🚀 Đang quét Đai Đỏ (Red Belt)...")
+    
+    while task.wait(10) do
+        if hasRedBelt() then
+            print("✨ ĐÃ CÓ ĐAI ĐỎ! Đang ghi file và chờ " .. WaitTime .. " giây để đổi acc...")
+            
+            -- Bước 1: Ghi file báo cáo ngay lập tức
+            writeFinishFile()
+            
+            -- Bước 2: Đợi 60 giây theo yêu cầu của bạn
+            -- (Bạn có thể farm thêm hoặc làm gì đó trong 60s này)
+            task.wait(WaitTime)
+            
+            -- Bước 3: Tắt game để Tool tự đổi account
+            print("🛑 Hết thời gian chờ. Đang Shutdown...")
+            game:Shutdown()
+            break
+        end
+    end
+end)

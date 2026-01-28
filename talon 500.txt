@@ -1,69 +1,62 @@
---// 1. Cấu hình
-local TargetName = "Dragon Talon" -- Tên chính xác của món đồ
-local TargetMas = 500             -- Số Mastery cần đạt
-local FileName = "DragonTalon-500" -- Tên file báo cáo
+--// 1. Đợi Game Load hoàn tất
+repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer:FindFirstChild("DataLoaded")
 
---// 2. Đợi Game Load
-repeat task.wait() until game:IsLoaded()
-repeat task.wait() until game.Players.LocalPlayer
+-- Bỏ qua màn hình chọn team (nếu có)
+if game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
+    repeat task.wait() until not game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
+end
+
 local plr = game.Players.LocalPlayer
+local CommF = game.ReplicatedStorage.Remotes.CommF_
 
---// 3. Hàm ghi file báo cáo
-function writeFinishFile()
-    pcall(function()
-        writefile(plr.Name .. ".txt", "Completed-" .. FileName)
+--// CẤU HÌNH
+local TargetItem = "Dojo Belt (Yellow)" 
+local FileName = "YellowBelt-Done" -- Tên file báo về tool
+local WaitTime = 60                -- Thời gian chờ trước khi đổi acc (Giây)
+
+--// 2. Hàm kiểm tra item
+function checkItemExist(itemName)
+    local success, inv = pcall(function()
+        return CommF:InvokeServer("getInventory") 
     end)
-end
-
---// 4. Hàm kiểm tra Mastery trực tiếp trên người (Cầm tay hoặc trong Balo)
-function getEquippedMastery()
-    local character = plr.Character or plr.CharacterAdded:Wait()
-    local backpack = plr.Backpack
     
-    -- Ưu tiên 1: Tìm xem nhân vật có đang cầm trên tay không
-    local tool = character:FindFirstChild(TargetName)
-    
-    -- Ưu tiên 2: Nếu không cầm, tìm trong thanh slot đồ (Backpack)
-    if not tool then
-        tool = backpack:FindFirstChild(TargetName)
-    end
-
-    -- Nếu tìm thấy Tool
-    if tool then
-        -- Trong Blox Fruits, Tool thường có 1 Value tên là "Level" chứa Mastery
-        if tool:FindFirstChild("Level") then
-            return true, tool.Level.Value
-        else
-            -- Trường hợp dự phòng: Một số tool không lưu Level trong đó mà hiển thị trên GUI
-            -- Nhưng thường check .Level là chuẩn nhất cho item đang cầm
-            return true, 0 -- Tìm thấy nhưng không đọc được Mastery (Lỗi game hoặc sai tên)
+    if success and inv then
+        for _, v in pairs(inv) do
+            -- So sánh tên item
+            if v.Name and (v.Name == itemName or string.find(v.Name, "Dojo Belt (Yellow)")) then 
+                return true
+            end
         end
     end
-    
-    return false, 0 -- Không tìm thấy món đồ trên người
+    return false
 end
 
---// 5. Vòng lặp chính
-print("🚀 Đang soi Mastery của: " .. TargetName .. " (Trên tay/Balo)")
+--// 3. Vòng lặp kiểm tra
+print("🟡 Đang quét Inventory tìm: " .. TargetItem)
 
-while task.wait(2) do -- Check nhanh hơn (2 giây/lần)
-    local found, mastery = getEquippedMastery()
-    
-    if found then
-        print("⚔️ Đang cầm/có " .. TargetName .. " | Mastery: " .. mastery)
+task.spawn(function()
+    while task.wait(5) do -- Check mỗi 5s
+        local hasBelt = checkItemExist(TargetItem)
         
-        if mastery >= TargetMas then
-            print("✅ Đã ĐỦ 500 Mastery! Ghi file và tắt máy...")
-            writeFinishFile()
-            task.wait(1)
-            game:Shutdown()
+        if hasBelt then
+            print("✅ ĐÃ TÌM THẤY ĐAI VÀNG (YELLOW BELT)!")
+            
+            -- Bước 1: Ghi file báo cáo NGAY LẬP TỨC để đánh dấu
+            pcall(function()
+                writefile(plr.Name .. ".txt", "Completed-" .. FileName)
+                print("💾 Đã ghi file báo cáo: " .. plr.Name .. ".txt")
+            end)
+            
+            -- Bước 2: Đợi 60 giây để Game lưu dữ liệu (Save Data)
+            print("⏳ Đang treo thêm " .. WaitTime .. " giây để tránh mất đồ...")
+            task.wait(WaitTime)
+            
+            -- Bước 3: Tắt game để đổi acc
+            print("🛑 Đã hết 60s. Shutdown để đổi acc!")
+            game:Shutdown() 
             break
-        end
-    else
-        -- Nếu không tìm thấy, thử tự động trang bị (Equip) nếu nó nằm sâu trong Balo
-        print("⚠️ Không thấy " .. TargetName .. " trên tay/slot. Đang tìm trong Balo...")
-        if plr.Backpack:FindFirstChild(TargetName) then
-            plr.Character.Humanoid:EquipTool(plr.Backpack[TargetName])
+        else
+            print("⏳ Vẫn chưa có Đai Vàng...")
         end
     end
-end
+end)
